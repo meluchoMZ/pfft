@@ -230,3 +230,83 @@ void __1D_IFFT_iterative(std::valarray<std::complex<double>> &X)
 	// normalizes the output
 	X /= samples;
 }
+
+
+
+// 2D FFT's
+
+void FFT2_recursive(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns)
+{
+	unsigned long samples, rows;
+	std::valarray<std::complex<double>> aux, aux2;
+	samples = x.size();
+	y.resize(samples);
+	rows = samples/columns;
+	aux.resize(rows);
+	// computes fft on columns
+	for (unsigned long k = 0; k < columns; k++) {
+		aux[std::slice(0, rows, 1)] = x[std::slice(k, rows, columns)];
+		///*
+		std::cout << "AUX " << k << std::endl;
+		for (int kk = 0; kk < rows; kk++) {
+			std::cout << aux[kk] << " ";
+		}
+		std::cout << std::endl;
+		//*/
+		FFT_recursive(aux, aux2);
+		///*
+		std::cout << "AUX " << k << " FT" << std::endl;
+		for (int kk = 0; kk < rows; kk++) {
+			std::cout << aux2[kk] << " ";
+		}
+		std::cout << std::endl;
+		//*/
+		y[std::slice(k, rows, columns)] = aux2[std::slice(0, rows, 1)];
+	}
+	///*
+	std::cout << "column ft" << std::endl;
+	for (int k = 0; k < rows; k++) {
+		for (int kk = 0; kk < columns; kk++) {
+			std::cout << y[k*4+kk] << " ";
+		}
+		std::cout << std::endl;
+	}
+	std::cout << "affter columns transformation" << std::endl;
+	//*/
+	aux.resize(columns);
+	// computes fft on rows
+	for (unsigned long k = 0; k < rows; k++) {
+		aux[std::slice(0, columns, 1)] = y[std::slice(k*columns, columns, 1)];
+		/*
+		std::cout << "AUX " << k << std::endl;
+		for (int kk = 0; kk < rows; kk++) {
+			std::cout << aux[kk] << " ";
+		}
+		std::cout << std::endl;
+		*/
+		FFT_recursive(aux, aux2);
+		/*
+		std::cout << "AUX " << k << " FT" << std::endl;
+		for (int kk = 0; kk < rows; kk++) {
+			std::cout << aux2[kk] << " ";
+		}
+		std::cout << std::endl;
+		*/
+		y[std::slice(k*columns, columns, 1)] = aux2[std::slice(0, columns, 1)];
+	}
+}
+
+
+void IFFT2_recursive(std::valarray<std::complex<double>> &y, std::valarray<std::complex<double>> &x, unsigned long columns)
+{
+}
+
+
+void FFT2_iterative(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns)
+{
+}
+
+
+void IFFT2_iterative(std::valarray<std::complex<double>> &y, std::valarray<std::complex<double>> &x, unsigned long columns)
+{
+}
