@@ -50,6 +50,6 @@ int main(void)
 	
 	std::cout << "copy size: " << copy.size() << std::endl;
 	std::cout << "recv (orig) size: " << recv.size() << std::endl;
-	//recv[1:10];
+
 	return EXIT_SUCCESS;
 }
