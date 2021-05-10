@@ -1,5 +1,5 @@
 /**
-  Test for the 2D FFT 
+  Test for the 2D FFT and IFFT
   Digital information processing, Computer engineering
 Author: Miguel Blanco Godón
 */
@@ -24,14 +24,32 @@ int main(void)
 		std::cout << std::endl;
 	}
 
-	FFT2_recursive(data, fftd, 2);
+	FFT2(data, fftd, 2, FFT_TYPE_RECURSIVE);
 
-	std::cout << "FT matrix:" << std::endl;
+	std::cout << std::endl << "FFT matrix:" << std::endl;
 	for (int k = 0; k < 8; k++) {
 		for (int kk = 0; kk < 2; kk++) {
 			std::cout << fftd[k*2+kk] << " ";
 		}
 		std::cout << std::endl;
 	}
+
+	IFFT2(fftd, recv, 2, FFT_TYPE_ITERATIVE);
+
+	std::cout << std::endl << "IFFT matrix:" << std::endl;
+	for (int k = 0; k < 8; k++) {
+		for (int kk = 0; kk < 2; kk++) {
+			std::cout << recv[k*2+kk] << " ";
+		}
+		std::cout << std::endl;
+	}
+
+	std::valarray<std::complex<double>> copy;
+	copy = recv;
+	copy.resize(0);
+	
+	std::cout << "copy size: " << copy.size() << std::endl;
+	std::cout << "recv (orig) size: " << recv.size() << std::endl;
+	//recv[1:10];
 	return EXIT_SUCCESS;
 }

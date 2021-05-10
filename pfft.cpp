@@ -21,10 +21,10 @@ void __1D_IFFT_iterative(std::valarray<std::complex<double>> &X);
 // calculates the nearest power of two of prev and steores it in next
 void get_new_size(unsigned long prev, unsigned long *next)
 {
-	*next = 2;
+	*next = 0x02;
 	while (*next < prev)
 	{
-		*next *= 2;
+		*next <<= 2;
 	}
 }
 
@@ -39,9 +39,13 @@ void FFT_recursive(std::valarray<std::complex<double>> &x, std::valarray<std::co
 	}
 	// replicates x on y, were length(y) is a power of two
 	// applies zero padding if necessary
-	get_new_size(samples, &new_size);
-	y.resize(new_size);
-	y[std::slice(0, samples, 1)] = x;
+	if (samples % 2 != 0) {
+		get_new_size(samples, &new_size);
+		y.resize(new_size);
+		y[std::slice(0, samples, 1)] = x;
+	} else {
+		y = x;
+	}
 	// computes the fft
 	__1D_FFT_recursive(y);
 }
@@ -63,8 +67,9 @@ void __1D_FFT_recursive(std::valarray<std::complex<double>> &x)
 		__1D_FFT_recursive(x_k_even);
 		__1D_FFT_recursive(x_k_odd);
 		// gathers the computations and collects them back on the array
-		for (unsigned long k = 0; k < samples/2; k++) {
-			q = std::complex<double>(cos(-2*M_PI*k/samples), sin(-2*M_PI*k/samples)) * x_k_odd[k];
+		for (register unsigned long k = 0; k < samples/2; k++) {
+			//q = std::complex<double>(cos(-2*M_PI*k/samples), sin(-2*M_PI*k/samples)) * x_k_odd[k];
+			q = std::polar(1.0, -2*M_PI*k/samples) * x_k_odd[k];
 			x[k] = x_k_even[k]+q;
 			x[k+samples/2] = x_k_even[k]-q;
 		}
@@ -235,78 +240,75 @@ void __1D_IFFT_iterative(std::valarray<std::complex<double>> &X)
 
 // 2D FFT's
 
-void FFT2_recursive(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns)
+void FFT2(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns, int type)
 {
 	unsigned long samples, rows;
 	std::valarray<std::complex<double>> aux, aux2;
 	samples = x.size();
-	y.resize(samples);
+	if (samples == 0) {
+		return;
+	}
+	y = x;
 	rows = samples/columns;
 	aux.resize(rows);
 	// computes fft on columns
 	for (unsigned long k = 0; k < columns; k++) {
 		aux[std::slice(0, rows, 1)] = x[std::slice(k, rows, columns)];
-		///*
-		std::cout << "AUX " << k << std::endl;
-		for (int kk = 0; kk < rows; kk++) {
-			std::cout << aux[kk] << " ";
+		if (type == FFT_TYPE_ITERATIVE) {
+			FFT_iterative(aux, aux2);
+		} 		
+		if (type == FFT_TYPE_RECURSIVE) {
+			FFT_recursive(aux, aux2);
 		}
-		std::cout << std::endl;
-		//*/
-		FFT_recursive(aux, aux2);
-		///*
-		std::cout << "AUX " << k << " FT" << std::endl;
-		for (int kk = 0; kk < rows; kk++) {
-			std::cout << aux2[kk] << " ";
-		}
-		std::cout << std::endl;
-		//*/
 		y[std::slice(k, rows, columns)] = aux2[std::slice(0, rows, 1)];
 	}
-	///*
-	std::cout << "column ft" << std::endl;
-	for (int k = 0; k < rows; k++) {
-		for (int kk = 0; kk < columns; kk++) {
-			std::cout << y[k*4+kk] << " ";
-		}
-		std::cout << std::endl;
-	}
-	std::cout << "affter columns transformation" << std::endl;
-	//*/
 	aux.resize(columns);
 	// computes fft on rows
 	for (unsigned long k = 0; k < rows; k++) {
 		aux[std::slice(0, columns, 1)] = y[std::slice(k*columns, columns, 1)];
-		/*
-		std::cout << "AUX " << k << std::endl;
-		for (int kk = 0; kk < rows; kk++) {
-			std::cout << aux[kk] << " ";
+		if (type == FFT_TYPE_ITERATIVE) {
+			FFT_iterative(aux, aux2);
+		} 		
+		if (type == FFT_TYPE_RECURSIVE) {
+			FFT_recursive(aux, aux2);
 		}
-		std::cout << std::endl;
-		*/
-		FFT_recursive(aux, aux2);
-		/*
-		std::cout << "AUX " << k << " FT" << std::endl;
-		for (int kk = 0; kk < rows; kk++) {
-			std::cout << aux2[kk] << " ";
-		}
-		std::cout << std::endl;
-		*/
 		y[std::slice(k*columns, columns, 1)] = aux2[std::slice(0, columns, 1)];
 	}
 }
 
 
-void IFFT2_recursive(std::valarray<std::complex<double>> &y, std::valarray<std::complex<double>> &x, unsigned long columns)
+void IFFT2(std::valarray<std::complex<double>> &y, std::valarray<std::complex<double>> &x, unsigned long columns, int type)
 {
-}
-
-
-void FFT2_iterative(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns)
-{
-}
-
-
-void IFFT2_iterative(std::valarray<std::complex<double>> &y, std::valarray<std::complex<double>> &x, unsigned long columns)
-{
+	unsigned long samples, rows;
+	std::valarray<std::complex<double>> aux, aux2;
+	samples = y.size();
+	if (samples == 0) {
+		return;
+	}
+	x.resize(samples);
+	rows = samples/columns;
+	aux.resize(rows);
+	// computes ifft on columns
+	for (unsigned long k = 0; k < columns; k++) {
+		aux[std::slice(0, rows, 1)] = y[std::slice(k, rows, columns)];
+		if (type == FFT_TYPE_ITERATIVE) {
+			IFFT_iterative(aux, aux2);
+		} 		
+		if (type == FFT_TYPE_RECURSIVE) {
+			IFFT_recursive(aux, aux2);
+		}
+		x[std::slice(k, rows, columns)] = aux2[std::slice(0, rows, 1)];
+	}
+	aux.resize(columns);
+	// computes ifft on rows
+	for (unsigned long k = 0; k < rows; k++) {
+		aux[std::slice(0, columns, 1)] = x[std::slice(k*columns, columns, 1)];
+		if (type == FFT_TYPE_ITERATIVE) {
+			IFFT_iterative(aux, aux2);
+		} 		
+		if (type == FFT_TYPE_RECURSIVE) {
+			IFFT_recursive(aux, aux2);
+		}
+		x[std::slice(k*columns, columns, 1)] = aux2[std::slice(0, columns, 1)];
+	}
 }

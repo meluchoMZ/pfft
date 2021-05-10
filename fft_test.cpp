@@ -4,67 +4,56 @@
 Author: Miguel Blanco Godón
 */
 
-// C++ headers
 #include <iostream>
 #include <cstring>
-#include <vector>
 #include <complex>
-// C headers
+#include <vector>
+#include <valarray>
+
 #include <dirent.h>
 #include <errno.h>
 #include <unistd.h>
+#include <sys/time.h>
 
+#include "pfft.h"
+
+#define TEST0 "./testbench/test_0.dat"
+#define TEST1 "./testbench/test_1.dat"
+#define TEST2 "./testbench/test_2.dat"
+#define TEST3 "./testbench/test_3.dat"
+#define TEST4 "./testbench/test_4.dat"
 
 int main(void)
 {
-	DIR *d; 
-	struct dirent *dir;
 	FILE *f;
-	char c = 0x0;
-	int pixel;
-	std::complex<double> complex_pixel (0, 0);
-	char test_dir[] = "./testbench";
-	std::vector<unsigned char> pixels;
-	std::vector<std::complex<double>> fft_vector;
+	int d;
+	std::vector<std::complex<double>> input_vector;
+	std::valarray<std::complex<double>> *data;
+	std::valarray<std::complex<double>> fftd;
+	struct timeval start, finish;
+	std::string test_files[] = {TEST0, TEST1, TEST2, TEST3, TEST4}; 
+	int columns[] = {256, 512, 1024, 4096, 8192};
 
-	if (!(d = opendir(test_dir))) {
-		std::cout << "Can't open '" << test_dir  << "' directory: " << strerror(errno) << std::endl;
-		return EXIT_FAILURE;
-	}
-	while ((dir = readdir(d)) != NULL)
-	{
-		chdir(test_dir);
-		if (strcmp(dir->d_name, ".") != 0 && strcmp(dir->d_name, "..") != 0) {
-			std::cout << "Executing testbench " << c << ": " << dir->d_name << std::endl;
-			if (!(f = fopen(dir->d_name, "r"))) {
-				std::cout << "Can't open file '" << dir->d_name << "': " << strerror(errno) << std::endl;
-				break;
-			}
-			while (fscanf(f, "%d,", &pixel) != EOF)
-			{
-				pixels.push_back((unsigned char) pixel);
-				complex_pixel = std::complex<double> (pixel, 0);
-				fft_vector.push_back(complex_pixel);
-			}
-			// FFT and IFFT application to the vector
-			// value checking
-			for (unsigned int i = 0; i < pixels.size(); i++) {
-				if (pixels[i] != fft_vector[i].real()) {
-					std::cout << "Computation differs in position " << i << ": " << fft_vector[i].real() << " != " << pixels[i] << std::endl;
-				}
-			}
-			c++;
-			fclose(f);
+
+	for (int k = 0; k < 5; k++) {
+		if ((f = fopen(test_files[k].c_str(), "r")) == NULL) {
+			std::cout << "ERROR: cannot open test file '" << test_files[k].c_str() << "': " << strerror(errno) << "." << std::endl;
 		}
-		chdir("..");
+	
+		while (fscanf(f, "%d", &d) != EOF)
+		{
+			input_vector.push_back(std::complex<double> (d, 0));
+		}
+		
+		data = new std::valarray<std::complex<double>> (input_vector.data(), input_vector.size());
+		gettimeofday(&start, NULL);
+		FFT2(*data, fftd, columns[k], FFT_TYPE_RECURSIVE);
+		gettimeofday(&finish, NULL);
+		std::cout << "Execution time of 2D FFT on test " << k << "(" << columns[k] << "x" << columns[k] << "): " << (double) ((finish.tv_sec-start.tv_sec)*1000+(finish.tv_usec-start.tv_usec)/1000)/1000 << " seconds." << std::endl;
+		delete data;
+
+		fclose(f); f = NULL;
 	}
-	closedir(d);
-	std::cout << "Vector size: " << pixels.size() << std::endl;
-	for (c = 0x0; c < 10; c++) {
-		std::cout << (unsigned int) pixels[c] << " " <<  fft_vector[c] << std::endl;
-	}
-	pixels.clear();
-	fft_vector.clear();
-	std::cout << "Vector size after clearing: " << pixels.size() << std::endl;
+
 	return EXIT_SUCCESS;
 }
