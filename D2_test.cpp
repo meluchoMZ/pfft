@@ -24,7 +24,10 @@ int main(void)
 		std::cout << std::endl;
 	}
 
-	FFT2(data, fftd, 2, FFT_TYPE_RECURSIVE);
+	//FFT2_recursive(data, fftd, 2);
+	//FFT2_iterative(data, fftd, 2);
+	//PFFT2_recursive(data, fftd, 2, 2);
+	PFFT2_iterative(data, fftd, 2, 2);
 
 	std::cout << std::endl << "FFT matrix:" << std::endl;
 	for (int k = 0; k < 8; k++) {
@@ -34,7 +37,8 @@ int main(void)
 		std::cout << std::endl;
 	}
 
-	IFFT2(fftd, recv, 2, FFT_TYPE_ITERATIVE);
+	//IFFT2_recursive(fftd, recv, 2);
+	IFFT2_iterative(fftd, recv, 2);
 
 	std::cout << std::endl << "IFFT matrix:" << std::endl;
 	for (int k = 0; k < 8; k++) {
@@ -43,13 +47,6 @@ int main(void)
 		}
 		std::cout << std::endl;
 	}
-
-	std::valarray<std::complex<double>> copy;
-	copy = recv;
-	copy.resize(0);
 	
-	std::cout << "copy size: " << copy.size() << std::endl;
-	std::cout << "recv (orig) size: " << recv.size() << std::endl;
-
 	return EXIT_SUCCESS;
 }

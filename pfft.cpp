@@ -124,14 +124,17 @@ void __1D_IFFT_recursive(std::valarray<std::complex<double>> &X)
 void bit_reverse_copy(std::valarray<std::complex<double>> &original, std::valarray<std::complex<double>> &copy)
 {
 	unsigned long s = original.size(), rev_k, rev_k_size, rev_num;
-	copy.resize(s);
+	double l2 = log2(s);
+	//copy.resize(s);
+	copy = original;
+	//std::cout << "vector size: " << s << std::endl;
 	// computes the length of the bit words
-	if (s%2 == 0) {
-		rev_k_size = log2(s);
+	if ((int) l2 == (double) l2) {
+		rev_k_size = l2;
 	} else {
-		rev_k_size = log2(s)+1;
+		rev_k_size = (int) l2+1;
 	}
-	for (unsigned long k = 0; k < s; k++) {
+	for (register unsigned long k = 0; k < s; k++) {
 		rev_k = 0x00;
 		rev_num = k;
 		// this works like a circular shift register. v.gr
@@ -139,7 +142,7 @@ void bit_reverse_copy(std::valarray<std::complex<double>> &original, std::valarr
 		// step 1: 1011
 		// step 2: 1101
 		// step 3: 1110
-		for (unsigned long kk = 0; kk < rev_k_size; kk++) {
+		for (register unsigned long kk = 0; kk < rev_k_size; kk++) {
 			rev_k = rev_k << 0x01;
 			if ((rev_num & 0x01) == 0x01) {
 				rev_k = rev_k ^ 0x01;
@@ -147,6 +150,7 @@ void bit_reverse_copy(std::valarray<std::complex<double>> &original, std::valarr
 			rev_num = rev_num >> 0x01;
 		}
 		// copies the values in the permutaded order
+		//std::cout << "original k: " << k << ";   permutaded k: " << rev_k << std::endl;
 		copy[rev_k] = original[k];
 	}
 }
@@ -173,27 +177,27 @@ void FFT_iterative(std::valarray<std::complex<double>> &x, std::valarray<std::co
 void IFFT_iterative(std::valarray<std::complex<double>> &y, std::valarray<std::complex<double>> &x)
 {
 	unsigned long samples, k;
-	std::valarray<std::complex<double>> aux, aux2;
+	std::valarray<std::complex<double>> aux;
 	// replicates x and applies zero padding
 	samples = y.size();
 	if (samples == 0) {
 		return;
 	}
 	k = samples -1;
-	aux.resize(samples);
-	aux[std::slice(0, samples, 1)] = y;
-	bit_reverse_copy(aux, aux2);
+	aux = y;
+
+	bit_reverse_copy(y, aux);
 
 	// computes the fft
-	__1D_IFFT_iterative(aux2);
+	__1D_IFFT_iterative(aux);
 
 	// removes zero padding and copies data to x
-	while (abs(std::real(aux2[k])) < ZERO_THRESHOLD && abs(std::imag(aux2[k])) < ZERO_THRESHOLD)
+	while (abs(std::real(aux[k])) < ZERO_THRESHOLD && abs(std::imag(aux[k])) < ZERO_THRESHOLD)
 	{
 		k--;
 	}
 	x.resize(k+1);
-	x[std::slice(0, k+1, 1)] = aux2[std::slice(0, k+1, 1)];
+	x[std::slice(0, k+1, 1)] = aux[std::slice(0, k+1, 1)];
 }
 
 
@@ -205,11 +209,12 @@ void __1D_FFT_iterative(std::valarray<std::complex<double>> &y)
 	lsize = log2(samples);
 	for (unsigned long s = 1; s <= lsize; s++) {
 		m = 1 << s;
-		w_m = std::complex<double>(cos(-2*M_PI/m), sin(-2*M_PI/m));
-		for (unsigned long k = 0; k < samples; k += m) {
+		//w_m = std::complex<double>(cos(-2*M_PI/m), sin(-2*M_PI/m));
+		w_m = std::polar(1.0, -M_PI/(m >> 1));
+		for (register unsigned long k = 0; k < samples; k += m) {
 			w = 1;
 			// in situ computation of the butterflies
-			for (unsigned long j = 0; j < (m >> 1); j++) {
+			for (register unsigned long j = 0; j < (m >> 1); j++) {
 				t = w * y[k + j + (m >> 1)];
 				u = y[k + j];
 				y[k + j] = u + t;
@@ -222,15 +227,15 @@ void __1D_FFT_iterative(std::valarray<std::complex<double>> &y)
 
 void __1D_IFFT_iterative(std::valarray<std::complex<double>> &X)
 {
-	unsigned long samples = X.size();
+	register unsigned long samples = X.size();
 	// computes complex conjugate of the input
-	for (unsigned long k = 0; k < samples; k++) {
+	for (register unsigned long k = 0; k < samples; k++) {
 		X[k] = std::complex<double>(std::real(X[k]), -1*std::imag(X[k]));
 	}
 	// computes the fft
 	__1D_FFT_iterative(X);
 	// computes again the complex conjugate of the output of the fft
-	for (unsigned long k = 0; k < samples; k++) {
+	for (register unsigned long k = 0; k < samples; k++) {
 		X[k] = std::complex<double>(std::real(X[k]), -1*std::imag(X[k]));
 	}
 	// normalizes the output
@@ -241,20 +246,11 @@ void __1D_IFFT_iterative(std::valarray<std::complex<double>> &X)
 
 // 2D FFT's
 
-void FFT2(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns, int type)
+void FFT2_recursive(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns)
 {
 	unsigned long samples;
 	register unsigned long rows;
-	std::valarray<std::complex<double>> aux, aux2;
-	void (*fft_function)(std::valarray<std::complex<double>> &, std::valarray<std::complex<double>> &) = (type == FFT_TYPE_ITERATIVE) ? &FFT_iterative : &FFT_recursive;
-	/*
-	if (type == FFT_TYPE_ITERATIVE) {
-		(*fft_function) = &FFT_iterative;
-	}
-	if (type == FFT_TYPE_RECURSIVE) {
-		(*fft_function) = &FFT_recursive;
-	}
-	*/
+	std::valarray<std::complex<double>> aux;
 	samples = x.size();
 	if (samples == 0) {
 		return;
@@ -265,39 +261,23 @@ void FFT2(std::valarray<std::complex<double>> &x, std::valarray<std::complex<dou
 	// computes fft on columns
 	for (register unsigned long k = 0; k < columns; k++) {
 		aux[std::slice(0, rows, 1)] = x[std::slice(k, rows, columns)];
-		/*
-		if (type == FFT_TYPE_ITERATIVE) {
-			FFT_iterative(aux, aux2);
-		} 		
-		if (type == FFT_TYPE_RECURSIVE) {
-			FFT_recursive(aux, aux2);
-		}
-		*/
-		(*fft_function)(aux, aux2);
-		y[std::slice(k, rows, columns)] = aux2[std::slice(0, rows, 1)];
+		__1D_FFT_recursive(aux);
+		y[std::slice(k, rows, columns)] = aux[std::slice(0, rows, 1)];
 	}
 	aux.resize(columns);
 	// computes fft on rows
 	for (register unsigned long k = 0; k < rows; k++) {
 		aux[std::slice(0, columns, 1)] = y[std::slice(k*columns, columns, 1)];
-		/*
-		if (type == FFT_TYPE_ITERATIVE) {
-			FFT_iterative(aux, aux2);
-		} 		
-		if (type == FFT_TYPE_RECURSIVE) {
-			FFT_recursive(aux, aux2);
-		}
-		*/
-		(*fft_function)(aux, aux2);
-		y[std::slice(k*columns, columns, 1)] = aux2[std::slice(0, columns, 1)];
+		__1D_FFT_recursive(aux);
+		y[std::slice(k*columns, columns, 1)] = aux[std::slice(0, columns, 1)];
 	}
 }
 
 
-void IFFT2(std::valarray<std::complex<double>> &y, std::valarray<std::complex<double>> &x, unsigned long columns, int type)
+void IFFT2_recursive(std::valarray<std::complex<double>> &y, std::valarray<std::complex<double>> &x, unsigned long columns)
 {
 	unsigned long samples, rows;
-	std::valarray<std::complex<double>> aux, aux2;
+	std::valarray<std::complex<double>> aux;
 	samples = y.size();
 	if (samples == 0) {
 		return;
@@ -308,24 +288,247 @@ void IFFT2(std::valarray<std::complex<double>> &y, std::valarray<std::complex<do
 	// computes ifft on columns
 	for (unsigned long k = 0; k < columns; k++) {
 		aux[std::slice(0, rows, 1)] = y[std::slice(k, rows, columns)];
-		if (type == FFT_TYPE_ITERATIVE) {
-			IFFT_iterative(aux, aux2);
-		} 		
-		if (type == FFT_TYPE_RECURSIVE) {
-			IFFT_recursive(aux, aux2);
-		}
-		x[std::slice(k, rows, columns)] = aux2[std::slice(0, rows, 1)];
+		__1D_IFFT_recursive(aux);
+		x[std::slice(k, rows, columns)] = aux[std::slice(0, rows, 1)];
 	}
 	aux.resize(columns);
 	// computes ifft on rows
 	for (unsigned long k = 0; k < rows; k++) {
 		aux[std::slice(0, columns, 1)] = x[std::slice(k*columns, columns, 1)];
-		if (type == FFT_TYPE_ITERATIVE) {
-			IFFT_iterative(aux, aux2);
-		} 		
-		if (type == FFT_TYPE_RECURSIVE) {
-			IFFT_recursive(aux, aux2);
+		__1D_IFFT_recursive(aux);
+		x[std::slice(k*columns, columns, 1)] = aux[std::slice(0, columns, 1)];
+	}
+}
+
+
+
+void FFT2_iterative(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns)
+{
+	unsigned long samples;
+	register unsigned long rows;
+	std::valarray<std::complex<double>> aux, aux2;
+	samples = x.size();
+	if (samples == 0) {
+		return;
+	}
+	y = x;
+	rows = samples/columns;
+	aux.resize(rows);
+	// computes fft on columns
+	for (register unsigned long k = 0; k < columns; k++) {
+		aux[std::slice(0, rows, 1)] = x[std::slice(k, rows, columns)];
+		bit_reverse_copy(aux, aux2);
+		__1D_FFT_iterative(aux2);
+		y[std::slice(k, rows, columns)] = aux2[std::slice(0, rows, 1)];
+	}
+	aux.resize(columns);
+	// computes fft on rows
+	for (register unsigned long k = 0; k < rows; k++) {
+		aux[std::slice(0, columns, 1)] = y[std::slice(k*columns, columns, 1)];
+		bit_reverse_copy(aux,aux2);
+		__1D_FFT_iterative(aux2);
+		y[std::slice(k*columns, columns, 1)] = aux2[std::slice(0, columns, 1)];
+	}
+}
+
+
+void IFFT2_iterative(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns)
+{
+	unsigned long samples;
+	register unsigned long rows;
+	std::valarray<std::complex<double>> aux, aux2;
+	samples = x.size();
+	if (samples == 0) {
+		return;
+	}
+	y = x;
+	rows = samples/columns;
+	aux.resize(rows);
+	// computes fft on columns
+	for (register unsigned long k = 0; k < columns; k++) {
+		aux[std::slice(0, rows, 1)] = x[std::slice(k, rows, columns)];
+		bit_reverse_copy(aux, aux2);
+		__1D_IFFT_iterative(aux2);
+		y[std::slice(k, rows, columns)] = aux2[std::slice(0, rows, 1)];
+	}
+	aux.resize(columns);
+	// computes fft on rows
+	for (register unsigned long k = 0; k < rows; k++) {
+		aux[std::slice(0, columns, 1)] = y[std::slice(k*columns, columns, 1)];
+		bit_reverse_copy(aux,aux2);
+		__1D_IFFT_iterative(aux2);
+		y[std::slice(k*columns, columns, 1)] = aux2[std::slice(0, columns, 1)];
+	}
+}
+
+
+
+// Parallel 2D FFT's
+
+void recursive_column_wrapper(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long alpha, unsigned long beta, unsigned long gamma, int who, std::mutex &m)
+{
+	std::valarray<std::complex<double>> aux;
+	//m.lock();
+	//m.unlock();
+	//m.try_lock();
+	//m.unlock();
+	aux.resize(alpha);
+	for (register unsigned long k = 0; k < gamma; k++) {
+		aux[std::slice(0, alpha, 1)] = x[std::slice(k+who*gamma, alpha, beta)];
+		__1D_FFT_recursive(aux);
+		
+		while(1)
+		{
+			if (m.try_lock()) {
+				y[std::slice(k+who*gamma, alpha, beta)] = aux[std::slice(0, alpha, 1)];
+				m.unlock();
+				//cv.notify_all();
+				break;
+			} 
+			//cv.wait(m);
 		}
-		x[std::slice(k*columns, columns, 1)] = aux2[std::slice(0, columns, 1)];
+		//y[std::slice(k+who*gamma, alpha, beta)] = aux[std::slice(0, alpha, 1)];
+		//*/
+	}
+	return;
+}
+
+void recursive_row_wrapper(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long alpha, unsigned long beta, unsigned long gamma, int who, std::mutex &m)
+{
+	std::valarray<std::complex<double>> aux;
+	aux.resize(beta);
+	alpha += 0;
+	for (unsigned long k = 0; k < gamma; k++) {
+		//m.lock();
+		//std::cout << "I am " << who << ". std::slice parameters: " << beta*(k+who*gamma) << " " << beta << " " << 1 << std::endl;
+		//m.unlock();
+		aux[std::slice(0, beta, 1)] = x[std::slice(beta*(k+who*gamma), beta, 1)];
+		__1D_FFT_recursive(aux);
+		while (1)
+		{
+			if (m.try_lock()) {
+				y[std::slice(beta*(k+who*gamma), beta, 1)] = aux[std::slice(0, beta, 1)];
+				m.unlock();
+				break;
+			}
+		}
+	}
+}
+
+void PFFT2_recursive(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns, int thread_number)
+{
+	unsigned long samples, rows;
+	std::valarray<std::complex<double>> aux;
+	std::thread threads[thread_number];
+	std::mutex m;
+
+	samples = x.size();
+	if (samples == 0) {
+		return;
+	}
+	aux.resize(samples);
+	y.resize(samples);
+	rows = samples/columns;
+	
+	for (int k = 0; k < thread_number; k++) {
+		threads[k] = std::thread(recursive_column_wrapper, std::ref(x), std::ref(aux), rows, columns, columns/thread_number, k, std::ref(m));
+	}	
+	for (int k = 0; k < thread_number; k++) {
+		threads[k].join();
+	}
+
+	for (int k = 0; k < thread_number; k++) {
+		threads[k] = std::thread(recursive_row_wrapper, std::ref(aux), std::ref(y), rows, columns, rows/thread_number, k, std::ref(m));
+	}	
+	for (int k = 0; k < thread_number; k++) {
+		threads[k].join();
+	}
+}
+
+
+
+
+
+void iterative_column_wrapper(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long alpha, unsigned long beta, unsigned long gamma, int who, std::mutex &m)
+{
+	std::valarray<std::complex<double>> aux, aux2;
+	aux.resize(alpha);
+	for (register unsigned long k = 0; k < gamma; k++) {
+		aux[std::slice(0, alpha, 1)] = x[std::slice(k+who*gamma, alpha, beta)];
+		bit_reverse_copy(aux, aux2);
+		__1D_FFT_recursive(aux2);
+		
+		while(1)
+		{
+			if (m.try_lock()) {
+				y[std::slice(k+who*gamma, alpha, beta)] = aux2[std::slice(0, alpha, 1)];
+				m.unlock();
+				//cv.notify_all();
+				break;
+			} 
+			//cv.wait(m);
+		}
+		//y[std::slice(k+who*gamma, alpha, beta)] = aux[std::slice(0, alpha, 1)];
+		//*/
+	}
+	return;
+}
+
+void iterative_row_wrapper(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long alpha, unsigned long beta, unsigned long gamma, int who, std::mutex &m)
+{
+	std::valarray<std::complex<double>> aux, aux2;
+	aux.resize(beta);
+	alpha += 0;
+	for (unsigned long k = 0; k < gamma; k++) {
+		//m.lock();
+		//std::cout << "I am " << who << ". std::slice parameters: " << beta*(k+who*gamma) << " " << beta << " " << 1 << std::endl;
+		//m.unlock();
+		aux[std::slice(0, beta, 1)] = x[std::slice(beta*(k+who*gamma), beta, 1)];
+		bit_reverse_copy(aux, aux2);
+		__1D_FFT_recursive(aux2);
+		while (1)
+		{
+			if (m.try_lock()) {
+				y[std::slice(beta*(k+who*gamma), beta, 1)] = aux2[std::slice(0, beta, 1)];
+				m.unlock();
+				break;
+			}
+		}
+	}
+}
+
+
+
+
+
+
+void PFFT2_iterative(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns, int thread_number)
+{
+	unsigned long samples, rows;
+	std::valarray<std::complex<double>> aux;
+	std::thread threads[thread_number];
+	std::mutex m;
+
+	samples = x.size();
+	if (samples == 0) {
+		return;
+	}
+	aux.resize(samples);
+	y.resize(samples);
+	rows = samples/columns;
+
+	for (int k = 0; k < thread_number; k++) {
+		threads[k] = std::thread(recursive_column_wrapper, std::ref(x), std::ref(aux), rows, columns, columns/thread_number, k, std::ref(m));
+	}	
+	for (int k = 0; k < thread_number; k++) {
+		threads[k].join();
+	}
+	
+
+	for (int k = 0; k < thread_number; k++) {
+		threads[k] = std::thread(recursive_row_wrapper, std::ref(aux), std::ref(y), rows, columns, rows/thread_number, k, std::ref(m));
+	}	
+	for (int k = 0; k < thread_number; k++) {
+		threads[k].join();
 	}
 }

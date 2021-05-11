@@ -40,19 +40,26 @@ int main(void)
 			std::cout << "ERROR: cannot open test file '" << test_files[k].c_str() << "': " << strerror(errno) << "." << std::endl;
 		}
 	
-		while (fscanf(f, "%d", &d) != EOF)
+		while (fscanf(f, "%d\n", &d) != EOF)
 		{
 			input_vector.push_back(std::complex<double> (d, 0));
 		}
 		
 		data = new std::valarray<std::complex<double>> (input_vector.data(), input_vector.size());
+		
 		gettimeofday(&start, NULL);
-		FFT2(*data, fftd, columns[k], FFT_TYPE_RECURSIVE);
+		PFFT2_recursive(*data, fftd, columns[k], 4);
 		gettimeofday(&finish, NULL);
-		std::cout << "Execution time of 2D FFT on test " << k << "(" << columns[k] << "x" << columns[k] << "): " << (double) ((finish.tv_sec-start.tv_sec)*1000+(finish.tv_usec-start.tv_usec)/1000)/1000 << " seconds." << std::endl;
+		std::cout << "Execution time of 2D PFFT (recursive) on test " << k << "(" << columns[k] << "x" << columns[k] << "): " << (double) ((finish.tv_sec-start.tv_sec)*1000+(finish.tv_usec-start.tv_usec)/1000)/1000 << " seconds." << std::endl;
+
+		gettimeofday(&start, NULL);
+		PFFT2_iterative(*data, fftd, columns[k], 4);
+		gettimeofday(&finish, NULL);
+		std::cout << "Execution time of 2D FFT (iterative) on test " << k << "(" << columns[k] << "x" << columns[k] << "): " << (double) ((finish.tv_sec-start.tv_sec)*1000+(finish.tv_usec-start.tv_usec)/1000)/1000 << " seconds." << std::endl;
 		delete data;
 
 		fclose(f); f = NULL;
+		input_vector.clear();
 	}
 
 	return EXIT_SUCCESS;

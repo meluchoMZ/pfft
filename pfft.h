@@ -11,10 +11,15 @@ Author: Miguel Blanco Godón
 #include <complex>
 #include <cmath>
 #include <iostream>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
 #define ZERO_THRESHOLD 0.0000000001 // any number below 10^(-10) will be rounded to zero
 #define FFT_TYPE_RECURSIVE 0x00
 #define FFT_TYPE_ITERATIVE 0x00
+
+
 
 // computes 1 dimension FFT using the classic recursive divide & conquer algorithm
 // x is the input signal, y the output signal. Ideally, y will empty, cause its resized inside the function
@@ -35,12 +40,21 @@ void IFFT_iterative(std::valarray<std::complex<double>> &y, std::valarray<std::c
 
 
 // computes the 2D FFT. Only works for input lengths power of 2, cause is radix 2
-void FFT2(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns, int type);
+void FFT2_recursive(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns);
+void FFT2_iterative(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns);
 // computes the 2D IFFT. Only works for input lengths power of 2, cause is radix 2
-void IFFT2(std::valarray<std::complex<double>> &y, std::valarray<std::complex<double>> &x, unsigned long columns, int type);
+void IFFT2_recursive(std::valarray<std::complex<double>> &y, std::valarray<std::complex<double>> &x, unsigned long columns);
+void IFFT2_iterative(std::valarray<std::complex<double>> &y, std::valarray<std::complex<double>> &x, unsigned long columns);
 
 
-void PFFT2(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns, int type, int threads);
-void PIFFT2(std::valarray<std::complex<double>> &y, std::valarray<std::complex<double>> &x, unsigned long columns, int type, int threads);
+// parallel implementation of the FFT using shared memory
+// thread_number must be a power of two, lower than min(nºcolumns, nºrows)
+void PFFT2_recursive(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns, int thread_number);
+void PFFT2_iterative(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long columns, int thread_number);
+
+// parallel implementation of the IFFT using shared memory
+// thread_number must be a power of two, lower than min(nºcolumns, nºrows)
+void PIFFT2_recursive(std::valarray<std::complex<double>> &y, std::valarray<std::complex<double>> &x, unsigned long columns, int thread_number);
+void PIFFT2_iterative(std::valarray<std::complex<double>> &y, std::valarray<std::complex<double>> &x, unsigned long columns, int thread_number);
 
 #endif
