@@ -368,10 +368,6 @@ void IFFT2_iterative(std::valarray<std::complex<double>> &x, std::valarray<std::
 void recursive_column_wrapper(std::valarray<std::complex<double>> &x, std::valarray<std::complex<double>> &y, unsigned long alpha, unsigned long beta, unsigned long gamma, int who, std::mutex &m)
 {
 	std::valarray<std::complex<double>> aux;
-	//m.lock();
-	//m.unlock();
-	//m.try_lock();
-	//m.unlock();
 	aux.resize(alpha);
 	for (register unsigned long k = 0; k < gamma; k++) {
 		aux[std::slice(0, alpha, 1)] = x[std::slice(k+who*gamma, alpha, beta)];
@@ -382,13 +378,9 @@ void recursive_column_wrapper(std::valarray<std::complex<double>> &x, std::valar
 			if (m.try_lock()) {
 				y[std::slice(k+who*gamma, alpha, beta)] = aux[std::slice(0, alpha, 1)];
 				m.unlock();
-				//cv.notify_all();
 				break;
 			} 
-			//cv.wait(m);
 		}
-		//y[std::slice(k+who*gamma, alpha, beta)] = aux[std::slice(0, alpha, 1)];
-		//*/
 	}
 	return;
 }
@@ -399,9 +391,6 @@ void recursive_row_wrapper(std::valarray<std::complex<double>> &x, std::valarray
 	aux.resize(beta);
 	alpha += 0;
 	for (unsigned long k = 0; k < gamma; k++) {
-		//m.lock();
-		//std::cout << "I am " << who << ". std::slice parameters: " << beta*(k+who*gamma) << " " << beta << " " << 1 << std::endl;
-		//m.unlock();
 		aux[std::slice(0, beta, 1)] = x[std::slice(beta*(k+who*gamma), beta, 1)];
 		__1D_FFT_recursive(aux);
 		while (1)
@@ -456,20 +445,16 @@ void iterative_column_wrapper(std::valarray<std::complex<double>> &x, std::valar
 	for (register unsigned long k = 0; k < gamma; k++) {
 		aux[std::slice(0, alpha, 1)] = x[std::slice(k+who*gamma, alpha, beta)];
 		bit_reverse_copy(aux, aux2);
-		__1D_FFT_recursive(aux2);
+		__1D_FFT_iterative(aux2);
 		
 		while(1)
 		{
 			if (m.try_lock()) {
 				y[std::slice(k+who*gamma, alpha, beta)] = aux2[std::slice(0, alpha, 1)];
 				m.unlock();
-				//cv.notify_all();
 				break;
 			} 
-			//cv.wait(m);
 		}
-		//y[std::slice(k+who*gamma, alpha, beta)] = aux[std::slice(0, alpha, 1)];
-		//*/
 	}
 	return;
 }
@@ -480,12 +465,9 @@ void iterative_row_wrapper(std::valarray<std::complex<double>> &x, std::valarray
 	aux.resize(beta);
 	alpha += 0;
 	for (unsigned long k = 0; k < gamma; k++) {
-		//m.lock();
-		//std::cout << "I am " << who << ". std::slice parameters: " << beta*(k+who*gamma) << " " << beta << " " << 1 << std::endl;
-		//m.unlock();
 		aux[std::slice(0, beta, 1)] = x[std::slice(beta*(k+who*gamma), beta, 1)];
 		bit_reverse_copy(aux, aux2);
-		__1D_FFT_recursive(aux2);
+		__1D_FFT_iterative(aux2);
 		while (1)
 		{
 			if (m.try_lock()) {
@@ -518,7 +500,7 @@ void PFFT2_iterative(std::valarray<std::complex<double>> &x, std::valarray<std::
 	rows = samples/columns;
 
 	for (int k = 0; k < thread_number; k++) {
-		threads[k] = std::thread(recursive_column_wrapper, std::ref(x), std::ref(aux), rows, columns, columns/thread_number, k, std::ref(m));
+		threads[k] = std::thread(iterative_column_wrapper, std::ref(x), std::ref(aux), rows, columns, columns/thread_number, k, std::ref(m));
 	}	
 	for (int k = 0; k < thread_number; k++) {
 		threads[k].join();
@@ -526,7 +508,7 @@ void PFFT2_iterative(std::valarray<std::complex<double>> &x, std::valarray<std::
 	
 
 	for (int k = 0; k < thread_number; k++) {
-		threads[k] = std::thread(recursive_row_wrapper, std::ref(aux), std::ref(y), rows, columns, rows/thread_number, k, std::ref(m));
+		threads[k] = std::thread(iterative_row_wrapper, std::ref(aux), std::ref(y), rows, columns, rows/thread_number, k, std::ref(m));
 	}	
 	for (int k = 0; k < thread_number; k++) {
 		threads[k].join();

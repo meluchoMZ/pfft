@@ -55,7 +55,7 @@ int main(void)
 		gettimeofday(&start, NULL);
 		PFFT2_iterative(*data, fftd, columns[k], 4);
 		gettimeofday(&finish, NULL);
-		std::cout << "Execution time of 2D FFT (iterative) on test " << k << "(" << columns[k] << "x" << columns[k] << "): " << (double) ((finish.tv_sec-start.tv_sec)*1000+(finish.tv_usec-start.tv_usec)/1000)/1000 << " seconds." << std::endl;
+		std::cout << "Execution time of 2D PFFT (iterative) on test " << k << "(" << columns[k] << "x" << columns[k] << "): " << (double) ((finish.tv_sec-start.tv_sec)*1000+(finish.tv_usec-start.tv_usec)/1000)/1000 << " seconds." << std::endl;
 		delete data;
 
 		fclose(f); f = NULL;
